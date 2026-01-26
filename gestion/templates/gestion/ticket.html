@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket #{{ venta.id }}</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #525659; /* Fondo gris oscuro tipo visor PDF */
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding-top: 20px;
+        }
+
+        /* La "Hoja" del ticket */
+        .ticket-container {
+            background-color: white;
+            width: 300px;
+            padding: 15px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        .centrado { text-align: center; }
+        .derecha { text-align: right; }
+        .linea { border-bottom: 1px dashed black; margin: 8px 0; }
+        table { width: 100%; font-size: 12px; }
+        
+        /* Botones de acción (No salen en la impresión) */
+        .acciones {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .btn-imprimir { background-color: #28a745; color: white; }
+        .btn-cerrar { background-color: #dc3545; color: white; }
+
+        /* REGLAS DE IMPRESIÓN: Ocultar botones y fondo */
+        @media print {
+            body { background-color: white; display: block; }
+            .ticket-container { box-shadow: none; margin: 0; width: 100%; }
+            .acciones { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ticket-container">
+        <div class="centrado">
+            <strong>KIOSCO GISELE</strong><br>
+            Tucumán, Argentina<br>
+            --------------------------------
+        </div>
+
+        <div style="font-size: 12px;">
+            Fecha: {{ fecha|date:"d/m/Y H:i" }}<br>
+            Ticket #: {{ venta.id }}<br>
+            Vendedor: {{ venta.sesion.usuario.username }}
+        </div>
+
+        <div class="linea"></div>
+
+        <table>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.cantidad }} x {{ item.producto.nombre|truncatechars:18 }}</td>
+                <td class="derecha">${{ item.subtotal }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div class="linea"></div>
+
+        <table>
+            <tr>
+                <td><strong>TOTAL:</strong></td>
+                <td class="derecha"><strong>${{ total }}</strong></td>
+            </tr>
+            <tr>
+                <td>Pago:</td>
+                <td class="derecha">{{ metodo_pago }}</td>
+            </tr>
+        </table>
+
+        <div class="centrado" style="margin-top: 20px; font-size: 12px;">
+            ¡Gracias por su compra!<br>
+            ************************
+        </div>
+    </div>
+
+    <div style="height: 80px;"></div>
+
+    <div class="acciones no-print">
+        <button class="btn-cerrar" onclick="window.close()">❌ Cerrar</button>
+        <button class="btn-imprimir" onclick="window.print()">🖨️ IMPRIMIR</button>
+    </div>
+
+</body>
+</html>

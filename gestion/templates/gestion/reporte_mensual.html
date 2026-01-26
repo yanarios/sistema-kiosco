@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte Mensual</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="text-primary">📈 Reporte de Gestión: {{ mes|capfirst }} {{ anio }}</h1>
+            <a href="{% url 'ventas' %}" class="btn btn-outline-secondary">⬅ Volver a Ventas</a>
+        </div>
+
+        <div class="row g-4 mb-5">
+            
+            <div class="col-md-3">
+                <div class="card shadow-sm border-start border-success border-4 h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted text-uppercase mb-2">Ventas Totales</h6>
+                        <h3 class="fw-bold text-success">${{ total_ventas|floatformat:2 }}</h3>
+                        <small class="text-muted"><i class="bi bi-cart-check"></i> {{ cantidad_ventas }} tickets emitidos</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card shadow-sm border-start border-warning border-4 h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted text-uppercase mb-2">Costo Mercadería</h6>
+                        <h3 class="fw-bold text-warning">-${{ costo_mercaderia|floatformat:2 }}</h3>
+                        <small class="text-muted">Lo que te costó reponer</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card shadow-sm border-start border-danger border-4 h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted text-uppercase mb-2">Gastos Operativos</h6>
+                        <h3 class="fw-bold text-danger">-${{ total_gastos|floatformat:2 }}</h3>
+                        <small class="text-muted">Retiros, pagos proveedores, etc.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card shadow bg-primary text-white h-100">
+                    <div class="card-body">
+                        <h6 class="text-uppercase mb-2 opacity-75">Ganancia Neta</h6>
+                        <h2 class="fw-bold">${{ ganancia_neta|floatformat:2 }}</h2>
+                        <div class="mt-2">
+                            <span class="badge bg-white text-primary fw-bold">Rentabilidad: {{ margen }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <h5>💡 ¿Cómo se calcula esto?</h5>
+            <p class="mb-0">
+                Tu ganancia limpia sale de tomar todo lo que vendiste <strong>(${{ total_ventas }})</strong>, 
+                restando lo que te costaron esos productos <strong>(${{ costo_mercaderia }})</strong> 
+                y restando la plata que sacaste de la caja para gastos <strong>(${{ total_gastos }})</strong>.
+            </p>
+        </div>
+
+    </div>
+
+</body>
+</html>

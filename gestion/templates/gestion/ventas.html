@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Kiosco - Ventas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .lista-productos { max-height: 500px; overflow-y: auto; }
+        .ticket { background-color: #f8f9fa; border-left: 2px solid #ddd; height: 100vh; }
+        .total-box { font-size: 2rem; font-weight: bold; color: green; }
+    </style>
+</head>
+<body>
+
+    {% if not caja_abierta %}
+    <div class="alert alert-warning text-center m-0 rounded-0" role="alert">
+        <strong>⚠️ LA CAJA ESTÁ CERRADA.</strong> No podrás registrar ventas hasta que inicies turno.
+        <a href="{% url 'apertura_caja' %}" class="btn btn-primary btn-sm ms-3">🔓 ABRIR CAJA AHORA</a>
+    </div>
+    {% endif %}
+
+   <div class="container-fluid mt-3 mb-2">
+    <div class="d-flex justify-content-end gap-2">
+        
+        <a href="{% url 'exportar_excel' %}" class="btn btn-success">
+            📊 Exportar Ventas
+        </a>
+
+        {% if user.is_staff %}
+            <a href="{% url 'exportar_productos_excel' %}" class="btn btn-info text-white">
+                📋 Inventario
+            </a>
+            <a href="{% url 'reporte_mensual' %}" class="btn btn-dark">
+                📈 Ganancias
+            </a>
+        {% endif %}
+        
+        {% if caja_abierta %}
+            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalMovimiento">
+                💸 Ingreso/Egreso
+            </button>
+            
+            <a href="{% url 'cierre_caja' %}" class="btn btn-warning">
+                🔒 Cerrar Caja
+            </a>
+        {% endif %}
+
+        {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}" class="btn btn-warning fw-bold me-2">
+               ⚙️ Panel Admin
+            </a>
+        {% endif %}
+
+        <form action="{% url 'logout' %}" method="post" class="d-inline">
+             {% csrf_token %}
+            <button type="submit" class="btn btn-dark ms-2">🚪 Salir</button>
+        </form>
+    </div>
+</div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-8 p-4">
+                <h2>📦 Productos</h2>
+                
+                <div class="input-group mb-3">
+                    <input type="text" id="buscador" class="form-control form-control-lg" placeholder="Escanear código o buscar nombre..." autofocus>
+                </div>
+
+                <div class="lista-productos">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Stock</th> <th>Precio</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-productos">
+                          {% for p in productos %}
+                          <tr class="{% if p.stock_actual == 0 %}table-danger{% elif p.stock_actual <= 5 %}table-warning{% endif %}">
+        
+                             <td>{{ p.codigo }}</td>
+                             <td>
+                                 {{ p.nombre }}
+                                 {% if p.stock_actual == 0 %}
+                                     <span class="badge bg-danger">SIN STOCK</span>
+                                 {% endif %}
+                             </td>
+        
+                             <td class="fw-bold">
+                                 {% if p.tipo_venta == 'UNIDAD' %}
+                                     {{ p.stock_actual|floatformat:0 }} <small class="text-muted fw-normal">U</small>
+                                 {% else %}
+                                     {{ p.stock_actual|floatformat:3 }} <small class="text-muted fw-normal">kg | L</small>
+                                 {% endif %}
+                             </td>
+        
+                             <td>${{ p.precio_venta }}</td>
+        
+                             <td>
+                                 <button class="btn btn-primary btn-sm" 
+                                        onclick="agregarAlCarrito('{{ p.id }}', '{{ p.nombre }}', '{{ p.precio_venta }}', '{{ p.tipo_venta }}')"
+                                        {% if not caja_abierta or p.stock_actual == 0 %}disabled{% endif %}> 
+                                      + Agregar
+                                  </button>
+                             </td>
+                            </tr>
+                            {% endfor %}
+                      </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="col-md-4 ticket p-4">
+                <h3 class="text-center">🛒 Nueva Venta</h3>
+                <hr>
+                
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Cant</th>
+                            <th>Prod</th>
+                            <th>Subtotal</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="carrito-body">
+                        </tbody>
+                </table>
+
+                <hr>
+                <div class="text-end">
+                    <h4>Total: <span class="total-box" id="total-venta">$0.00</span></h4>
+                </div>
+
+                <div class="d-grid gap-2 mt-4">
+                    <button class="btn btn-success btn-lg" 
+                            onclick="cobrar()" 
+                            {% if not caja_abierta %}disabled{% endif %}>
+                        💰 Cobrar (F10)
+                    </button>
+                    <button class="btn btn-danger" onclick="limpiarCarrito()">🗑 Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   <div class="modal fade" id="modalMovimiento" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-secondary text-white">
+            <h5 class="modal-title">Registrar Movimiento de Caja</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form action="{% url 'registrar_movimiento' %}" method="POST">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tipo</label>
+                    <select name="tipo" class="form-select" required>
+                        <option value="EGRESO">📤 EGRESO (Gasto)</option>
+                        <option value="INGRESO">📥 INGRESO (Cambio)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Monto</label>
+                    <input type="number" step="0.01" name="monto" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" name="descripcion" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">💰 Finalizar Venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h2 class="text-center fw-bold mb-4">Total: <span id="modal-total-pagar">$0.00</span></h2>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Método de Pago</label>
+                        <select id="metodo-pago" class="form-select form-select-lg">
+                            <option value="EFECTIVO">💵 Efectivo</option>
+                            <option value="MERCADOPAGO">📱 Mercado Pago</option>
+                            <option value="DEBITO">💳 Débito</option>
+                            <option value="CREDITO">💳 Crédito</option>
+                        </select>
+                    </div>
+
+                    <div id="seccion-efectivo">
+                        <div class="mb-3">
+                            <label class="form-label">Paga con ($)</label>
+                            <input type="number" id="paga-con" class="form-control form-control-lg text-end" oninput="calcularVuelto()" placeholder="0.00">
+                        </div>
+                        <div class="alert alert-info text-center">
+                            <strong>Vuelto: </strong> <span id="vuelto-texto" class="fs-4">$0.00</span>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                    <button type="button" class="btn btn-success btn-lg" onclick="confirmarVenta()">✅ CONFIRMAR VENTA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+ <div class="modal fade" id="modalExito" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-center">
+            <div class="modal-body p-5">
+                <div style="font-size: 60px;">✅</div>
+                <h2 class="fw-bold mt-3 text-success">¡Venta Exitosa!</h2>
+                <p class="text-muted">La operación se registró correctamente.</p>
+                
+                <hr class="my-4">
+
+                <h5 class="mb-3">¿Desea imprimir el comprobante?</h5>
+                
+                <div class="d-flex justify-content-center gap-3 mb-4">
+                    <input type="radio" class="btn-check" name="opcionTicket" id="optionNo" autocomplete="off">
+                    <label class="btn btn-outline-secondary px-4 py-2" for="optionNo">No imprimir</label>
+
+                    <input type="radio" class="btn-check" name="opcionTicket" id="optionSi" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary px-4 py-2" for="optionSi">🖨️ Sí, imprimir</label>
+                </div>
+
+                <button onclick="finalizarProceso()" class="btn btn-success w-100 btn-lg">
+                    ACEPTAR Y CONTINUAR
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let carrito = [];
+        let ultimaVentaId = null;
+
+        // --- LÓGICA DEL BUSCADOR ---
+        document.getElementById('buscador').addEventListener('keyup', function() {
+           let texto = this.value.toLowerCase();
+           let filas = document.querySelectorAll('.producto-row'); // Buscamos las filas por la clase que agregamos arriba
+
+           filas.forEach(fila => {
+               let contenido = fila.innerText.toLowerCase();
+               if (contenido.includes(texto)) {
+                 fila.style.display = ''; // Mostrar
+              } else {
+                   fila.style.display = 'none'; // Ocultar
+              }
+           });
+        });
+
+        function agregarAlCarrito(id, nombre, precio, tipoVenta) {
+    precio = parseFloat(precio.toString().replace(',', '.'));
+    
+    let item = carrito.find(i => i.id === id);
+    
+    if (item) {
+        // Si ya está, sumamos 1 si es unidad, o nada si es peso (el cajero edita manual)
+        if (tipoVenta === 'UNIDAD') {
+            item.cantidad++;
+        }
+    } else {
+        // Si es nuevo, agregamos con cantidad 1 por defecto
+        carrito.push({ id, nombre, precio, cantidad: 1, tipo: tipoVenta });
+    }
+    actualizarVista();
+}
+
+function cambiarCantidad(index, nuevaCantidad) {
+    // Usamos parseFloat para permitir decimales (ej: 0.250)
+    let valor = parseFloat(nuevaCantidad);
+    
+    if (valor > 0) {
+        carrito[index].cantidad = valor;
+    } 
+    actualizarVista(); // Recalcular total visual
+}
+
+function actualizarVista() {
+    let tbody = document.getElementById('carrito-body');
+    tbody.innerHTML = '';
+    let total = 0;
+
+    carrito.forEach((item, index) => {
+        let subtotal = item.cantidad * item.precio;
+        total += subtotal;
+        
+        // Determinamos si el input permite decimales o no
+        let step = item.tipo === 'PESO' ? '0.001' : '1';
+        let placeholder = item.tipo === 'PESO' ? 'Kilos' : 'Cant';
+        
+        tbody.innerHTML += `
+            <tr>
+                <td style="width: 100px;">
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.cantidad}" min="0.001" step="${step}"
+                           onchange="cambiarCantidad(${index}, this.value)">
+                    ${item.tipo === 'PESO' ? '<small class="text-muted" style="font-size:10px">kg</small>' : ''}
+                </td>
+                <td>${item.nombre}</td>
+                <td>$${subtotal.toFixed(2)}</td>
+                <td><button class="btn btn-danger btn-sm py-0" onclick="eliminar(${index})">x</button></td>
+            </tr>
+        `;
+    });
+
+    document.getElementById('total-venta').innerText = '$' + total.toFixed(2);
+}
+
+        function eliminar(index) {
+            carrito.splice(index, 1);
+            actualizarVista();
+        }
+
+        function limpiarCarrito() {
+            carrito = [];
+            actualizarVista();
+        }
+
+        // --- NUEVA LÓGICA DE COBRO ---
+
+        // 1. Abre el modal en lugar de cobrar directo
+        function cobrar() {
+            if (carrito.length === 0) {
+                alert("El carrito está vacío");
+                return;
+            }
+            
+            // Calculamos total
+            let total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+            
+            // Preparamos el modal
+            document.getElementById('modal-total-pagar').innerText = '$' + total.toFixed(2);
+            document.getElementById('paga-con').value = ''; // Limpiar campo
+            document.getElementById('vuelto-texto').innerText = '$0.00';
+            
+            // Abrimos el modal usando Bootstrap
+            var myModal = new bootstrap.Modal(document.getElementById('modalCobro'));
+            myModal.show();
+        }
+
+        // 2. Calcula el vuelto en tiempo real
+        function calcularVuelto() {
+            let total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+            let pagaCon = parseFloat(document.getElementById('paga-con').value) || 0;
+            
+            let vuelto = pagaCon - total;
+            
+            let spanVuelto = document.getElementById('vuelto-texto');
+            if (vuelto >= 0) {
+                spanVuelto.innerText = '$' + vuelto.toFixed(2);
+                spanVuelto.classList.remove('text-danger');
+                spanVuelto.classList.add('text-success');
+            } else {
+                spanVuelto.innerText = "Falta: $" + Math.abs(vuelto).toFixed(2);
+                spanVuelto.classList.add('text-danger');
+            }
+        }
+
+        async function confirmarVenta() {
+        let metodo = document.getElementById('metodo-pago').value;
+        
+        try {
+            const response = await fetch('/cobrar/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}' 
+                },
+                body: JSON.stringify({ 
+                    items: carrito, 
+                    metodo_pago: metodo 
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // A. Cerramos el modal de cobro
+                const modalCobroEl = document.getElementById('modalCobro');
+                const modalCobro = bootstrap.Modal.getInstance(modalCobroEl);
+                modalCobro.hide();
+                
+                // B. Guardamos el ID que nos dio el backend
+                ultimaVentaId = data.venta_id;
+
+                // C. Abrimos el NUEVO Modal de Éxito (El que tiene el tilde verde)
+                const modalExito = new bootstrap.Modal(document.getElementById('modalExito'));
+                modalExito.show();
+                
+                // Limpiamos carrito visualmente de fondo
+                carrito = [];
+                actualizarVista();
+            } else {
+                alert("❌ Error: " + data.mensaje);
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert("Error de conexión");
+        }
+    }
+
+    // --- 3. NUEVA FUNCIÓN FINAL (Para el botón "Aceptar y Continuar") ---
+    
+    function finalizarProceso() {
+        // Verificamos si eligió "Sí, imprimir"
+        let quiereImprimir = document.getElementById('optionSi').checked;
+        
+        if (quiereImprimir && ultimaVentaId) {
+            // Calculamos centro de pantalla
+            let w = 350;
+            let h = 600;
+            let left = (screen.width / 2) - (w / 2);
+            let top = (screen.height / 2) - (h / 2);
+            
+            // Abrimos el ticket
+            window.open(
+                '/ticket/' + ultimaVentaId + '/', 
+                'Ticket', 
+                `width=${w},height=${h},top=${top},left=${left},scrollbars=yes`
+            );
+        }
+
+        // Recargamos la página para limpiar todo y estar listos para el próximo cliente
+        location.reload();
+    }
+  </script>
+</body>
+</html>
