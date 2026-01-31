@@ -8,6 +8,7 @@
         .lista-productos { max-height: 500px; overflow-y: auto; }
         .ticket { background-color: #f8f9fa; border-left: 2px solid #ddd; height: 100vh; }
         .total-box { font-size: 2rem; font-weight: bold; color: green; }
+        .producto-encontrado { background-color: #d1e7dd !important; transition: background 0.5s; }
     </style>
 </head>
 <body>
@@ -62,9 +63,23 @@
         <div class="row">
             <div class="col-md-8 p-4">
                 <h2>📦 Productos</h2>
+
+                <div class="d-flex gap-2 mb-3 overflow-auto pb-2">
+                   <button class="btn btn-outline-dark fw-bold active" onclick="filtrarCategoria('TODOS', this)">
+                      ♾️ TODOS
+                 </button>
+    
+                  {% for c in categorias %}
+                  <button class="btn btn-outline-secondary fw-bold text-uppercase text-nowrap" 
+                         onclick="filtrarCategoria('{{ c.id }}', this)">
+                      {{ c.nombre }}
+                  </button>
+                  {% endfor %}
+              </div>
                 
                 <div class="input-group mb-3">
-                    <input type="text" id="buscador" class="form-control form-control-lg" placeholder="Escanear código o buscar nombre..." autofocus>
+                    <span class="input-group-text">🔍 (F9)</span>
+                    <input type="text" id="buscador" class="form-control form-control-lg" placeholder="Escanear código o buscar nombre..." autofocus autocomplete="off">
                 </div>
 
                 <div class="lista-productos">
@@ -73,16 +88,17 @@
                             <tr>
                                 <th>Código</th>
                                 <th>Producto</th>
-                                <th>Stock</th> <th>Precio</th>
+                                <th>Stock</th> 
+                                <th>Precio</th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-productos">
                           {% for p in productos %}
-                          <tr class="{% if p.stock_actual == 0 %}table-danger{% elif p.stock_actual <= 5 %}table-warning{% endif %}">
-        
-                             <td>{{ p.codigo }}</td>
-                             <td>
+                          <tr class="producto-row {% if p.stock_actual == 0 %}table-danger{% elif p.stock_actual <= 5 %}table-warning{% endif %}" 
+                              data-categoria="{{ p.categoria.id|default:'SIN_CAT' }}">
+                             <td class="codigo-producto">{{ p.codigo }}</td>
+                             <td class="nombre-producto">
                                  {{ p.nombre }}
                                  {% if p.stock_actual == 0 %}
                                      <span class="badge bg-danger">SIN STOCK</span>
@@ -93,14 +109,14 @@
                                  {% if p.tipo_venta == 'UNIDAD' %}
                                      {{ p.stock_actual|floatformat:0 }} <small class="text-muted fw-normal">U</small>
                                  {% else %}
-                                     {{ p.stock_actual|floatformat:3 }} <small class="text-muted fw-normal">kg | L</small>
+                                     {{ p.stock_actual|floatformat:3 }} <small class="text-muted fw-normal">kg</small>
                                  {% endif %}
                              </td>
         
                              <td>${{ p.precio_venta }}</td>
         
                              <td>
-                                 <button class="btn btn-primary btn-sm" 
+                                 <button class="btn btn-primary btn-sm btn-agregar" 
                                         onclick="agregarAlCarrito('{{ p.id }}', '{{ p.nombre }}', '{{ p.precio_venta }}', '{{ p.tipo_venta }}')"
                                         {% if not caja_abierta or p.stock_actual == 0 %}disabled{% endif %}> 
                                       + Agregar
@@ -120,10 +136,10 @@
                 <table class="table table-sm">
                     <thead>
                         <tr>
-                            <th>Cant</th>
+                            <th style="width: 70px;">Cant</th>
                             <th>Prod</th>
-                            <th>Subtotal</th>
-                            <th></th>
+                            <th class="text-end">Subtotal</th>
+                            <th style="width: 30px;"></th>
                         </tr>
                     </thead>
                     <tbody id="carrito-body">
@@ -137,6 +153,7 @@
 
                 <div class="d-grid gap-2 mt-4">
                     <button class="btn btn-success btn-lg" 
+                            id="btn-cobrar"
                             onclick="cobrar()" 
                             {% if not caja_abierta %}disabled{% endif %}>
                         💰 Cobrar (F10)
@@ -147,40 +164,48 @@
         </div>
     </div>
 
-   <div class="modal fade" id="modalMovimiento" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header bg-secondary text-white">
-            <h5 class="modal-title">Registrar Movimiento de Caja</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <form action="{% url 'registrar_movimiento' %}" method="POST">
-            {% csrf_token %}
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Tipo</label>
-                    <select name="tipo" class="form-select" required>
-                        <option value="EGRESO">📤 EGRESO (Gasto)</option>
-                        <option value="INGRESO">📥 INGRESO (Cambio)</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Monto</label>
-                    <input type="number" step="0.01" name="monto" class="form-control" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Descripción</label>
-                    <input type="text" name="descripcion" class="form-control" required>
-                </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="submit" class="btn btn-primary">Guardar</button>
-            </div>
-          </form>
-        </div>
+<div class="modal fade" id="modalMovimiento" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title">Registrar Movimiento de Caja</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
+      <form action="{% url 'registrar_movimiento' %}" method="POST">
+        {% csrf_token %}
+        <div class="modal-body">
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold">Tipo de Movimiento</label>
+                <select name="tipo" class="form-select" id="select-tipo" onchange="actualizarCategorias()" required>
+                    <option value="EGRESO">📤 EGRESO (Salida de dinero)</option>
+                    <option value="INGRESO">📥 INGRESO (Entrada de dinero)</option>
+                </select>
+            </div> <div class="mb-3">
+                <label class="form-label fw-bold">Categoría / Motivo</label>
+                <select name="categoria" class="form-select" id="select-categoria" required>
+                    </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Monto ($)</label>
+                <input type="number" step="0.01" name="monto" class="form-control" placeholder="0.00" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Descripción</label>
+                <input type="text" name="descripcion" class="form-control" placeholder="Ej: Pago a preventista Arcor" required>
+            </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
     </div>
+  </div>
+</div>
 
     <div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -197,6 +222,7 @@
                         <select id="metodo-pago" class="form-select form-select-lg">
                             <option value="EFECTIVO">💵 Efectivo</option>
                             <option value="MERCADOPAGO">📱 Mercado Pago</option>
+                            <option value="VALE">📝 VALE / EMPLEADO (Fiado)</option>
                             <option value="DEBITO">💳 Débito</option>
                             <option value="CREDITO">💳 Crédito</option>
                         </select>
@@ -221,149 +247,228 @@
         </div>
     </div>
 
- <div class="modal fade" id="modalExito" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content text-center">
-            <div class="modal-body p-5">
-                <div style="font-size: 60px;">✅</div>
-                <h2 class="fw-bold mt-3 text-success">¡Venta Exitosa!</h2>
-                <p class="text-muted">La operación se registró correctamente.</p>
-                
-                <hr class="my-4">
-
-                <h5 class="mb-3">¿Desea imprimir el comprobante?</h5>
-                
-                <div class="d-flex justify-content-center gap-3 mb-4">
-                    <input type="radio" class="btn-check" name="opcionTicket" id="optionNo" autocomplete="off">
-                    <label class="btn btn-outline-secondary px-4 py-2" for="optionNo">No imprimir</label>
-
-                    <input type="radio" class="btn-check" name="opcionTicket" id="optionSi" autocomplete="off" checked>
-                    <label class="btn btn-outline-primary px-4 py-2" for="optionSi">🖨️ Sí, imprimir</label>
+    <div class="modal fade" id="modalExito" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-center">
+                <div class="modal-body p-5">
+                    <div style="font-size: 60px;">✅</div>
+                    <h2 class="fw-bold mt-3 text-success">¡Venta Exitosa!</h2>
+                    <p class="text-muted">La operación se registró correctamente.</p>
+                    
+                    <hr class="my-4">
+    
+                    <h5 class="mb-3">¿Desea imprimir el comprobante?</h5>
+                    
+                    <div class="d-flex justify-content-center gap-3 mb-4">
+                        <input type="radio" class="btn-check" name="opcionTicket" id="optionNo" autocomplete="off">
+                        <label class="btn btn-outline-secondary px-4 py-2" for="optionNo">No imprimir</label>
+    
+                        <input type="radio" class="btn-check" name="opcionTicket" id="optionSi" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary px-4 py-2" for="optionSi">🖨️ Sí, imprimir</label>
+                    </div>
+    
+                    <button onclick="finalizarProceso()" class="btn btn-success w-100 btn-lg">
+                        ACEPTAR Y CONTINUAR
+                    </button>
                 </div>
-
-                <button onclick="finalizarProceso()" class="btn btn-success w-100 btn-lg">
-                    ACEPTAR Y CONTINUAR
-                </button>
             </div>
         </div>
     </div>
-</div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
         let carrito = [];
         let ultimaVentaId = null;
+        const inputBuscador = document.getElementById('buscador');
 
-        // --- LÓGICA DEL BUSCADOR ---
-        document.getElementById('buscador').addEventListener('keyup', function() {
-           let texto = this.value.toLowerCase();
-           let filas = document.querySelectorAll('.producto-row'); // Buscamos las filas por la clase que agregamos arriba
+        // --- 1. MODO LECTOR DE CODIGO
+        
+        inputBuscador.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                
+                let codigo = this.value.trim();
+                if (codigo === "") return;
 
-           filas.forEach(fila => {
-               let contenido = fila.innerText.toLowerCase();
-               if (contenido.includes(texto)) {
-                 fila.style.display = ''; // Mostrar
-              } else {
-                   fila.style.display = 'none'; // Ocultar
-              }
-           });
+                
+                let filas = document.querySelectorAll('.producto-row');
+                let encontrado = false;
+
+                for (let fila of filas) {
+                    let celdaCodigo = fila.querySelector('.codigo-producto').innerText.trim();
+                    
+                    if (celdaCodigo === codigo) {
+                        
+                        let boton = fila.querySelector('.btn-agregar');
+                        if (!boton.disabled) {
+                            boton.click(); 
+                            
+                            fila.classList.add('producto-encontrado');
+                            setTimeout(() => fila.classList.remove('producto-encontrado'), 500);
+                            
+                            this.value = ''; 
+                            mostrarTodasLasFilas(); 
+                            encontrado = true;
+                        } else {
+                            alert("Producto sin stock o inactivo");
+                            this.value = '';
+                        }
+                        break; 
+                    }
+                }
+
+                if (!encontrado) {
+                    
+                    console.log("No se encontró código exacto, manteniendo filtro...");
+                }
+            }
         });
 
-        function agregarAlCarrito(id, nombre, precio, tipoVenta) {
-    precio = parseFloat(precio.toString().replace(',', '.'));
-    
-    let item = carrito.find(i => i.id === id);
-    
-    if (item) {
-        // Si ya está, sumamos 1 si es unidad, o nada si es peso (el cajero edita manual)
-        if (tipoVenta === 'UNIDAD') {
-            item.cantidad++;
+        
+        inputBuscador.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') return; 
+
+            let texto = this.value.toLowerCase();
+            let filas = document.querySelectorAll('.producto-row');
+
+            filas.forEach(fila => {
+                let contenido = fila.innerText.toLowerCase();
+                fila.style.display = contenido.includes(texto) ? '' : 'none';
+            });
+        });
+
+        function mostrarTodasLasFilas() {
+            let filas = document.querySelectorAll('.producto-row');
+            filas.forEach(f => f.style.display = '');
         }
-    } else {
-        // Si es nuevo, agregamos con cantidad 1 por defecto
-        carrito.push({ id, nombre, precio, cantidad: 1, tipo: tipoVenta });
-    }
-    actualizarVista();
-}
 
-function cambiarCantidad(index, nuevaCantidad) {
-    // Usamos parseFloat para permitir decimales (ej: 0.250)
-    let valor = parseFloat(nuevaCantidad);
-    
-    if (valor > 0) {
-        carrito[index].cantidad = valor;
-    } 
-    actualizarVista(); // Recalcular total visual
-}
-
-function actualizarVista() {
-    let tbody = document.getElementById('carrito-body');
-    tbody.innerHTML = '';
-    let total = 0;
-
-    carrito.forEach((item, index) => {
-        let subtotal = item.cantidad * item.precio;
-        total += subtotal;
         
-        // Determinamos si el input permite decimales o no
-        let step = item.tipo === 'PESO' ? '0.001' : '1';
-        let placeholder = item.tipo === 'PESO' ? 'Kilos' : 'Cant';
-        
-        tbody.innerHTML += `
-            <tr>
-                <td style="width: 100px;">
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.cantidad}" min="0.001" step="${step}"
-                           onchange="cambiarCantidad(${index}, this.value)">
-                    ${item.tipo === 'PESO' ? '<small class="text-muted" style="font-size:10px">kg</small>' : ''}
-                </td>
-                <td>${item.nombre}</td>
-                <td>$${subtotal.toFixed(2)}</td>
-                <td><button class="btn btn-danger btn-sm py-0" onclick="eliminar(${index})">x</button></td>
-            </tr>
-        `;
-    });
+        document.addEventListener('click', function(e) {
+            
+            const tagsIgnorados = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'A'];
+            const esModal = e.target.closest('.modal');
+            
+            if (!tagsIgnorados.includes(e.target.tagName) && !esModal) {
+                inputBuscador.focus();
+            }
+        });
 
-    document.getElementById('total-venta').innerText = '$' + total.toFixed(2);
-}
+        // Atajos Globales (F10, F9, ESC)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F10') {
+                e.preventDefault();
+                
+                if (carrito.length > 0 && !document.querySelector('.modal.show')) {
+                    cobrar();
+                }
+            }
+            if (e.key === 'F9') {
+                e.preventDefault();
+                inputBuscador.focus();
+                inputBuscador.select();
+            }
+        });
+
+
+        //  FUNCIONES DEL CARRITO
+
+        function agregarAlCarrito(id, nombre, precio, tipoVenta) {
+            precio = parseFloat(precio.toString().replace(',', '.'));
+            let item = carrito.find(i => i.id === id);
+            
+            if (item) {
+                if (tipoVenta === 'UNIDAD') {
+                    item.cantidad++;
+                }
+            } else {
+                carrito.push({ id, nombre, precio, cantidad: 1, tipo: tipoVenta });
+            }
+            actualizarVista();
+            inputBuscador.focus(); 
+        }
+
+        function cambiarCantidad(index, nuevaCantidad) {
+            let valor = parseFloat(nuevaCantidad);
+            if (valor > 0) {
+                carrito[index].cantidad = valor;
+            } 
+            actualizarVista();
+        }
+
+        function actualizarVista() {
+            let tbody = document.getElementById('carrito-body');
+            tbody.innerHTML = '';
+            let total = 0;
+
+            carrito.forEach((item, index) => {
+                let subtotal = item.cantidad * item.precio;
+                total += subtotal;
+                
+                let step = item.tipo === 'PESO' ? '0.001' : '1';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <input type="number" class="form-control form-control-sm px-1 text-center" 
+                                   value="${item.cantidad}" min="0.001" step="${step}"
+                                   onchange="cambiarCantidad(${index}, this.value)">
+                        </td>
+                        <td>
+                            <div class="text-truncate" style="max-width: 130px;">${item.nombre}</div>
+                            <small class="text-muted">$${item.precio}</small>
+                        </td>
+                        <td class="text-end fw-bold">$${subtotal.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm py-0 px-1" onclick="eliminar(${index})">×</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('total-venta').innerText = '$' + total.toFixed(2);
+        }
 
         function eliminar(index) {
             carrito.splice(index, 1);
             actualizarVista();
+            inputBuscador.focus();
         }
 
         function limpiarCarrito() {
-            carrito = [];
-            actualizarVista();
+            if(confirm("¿Vaciar carrito?")) {
+                carrito = [];
+                actualizarVista();
+                inputBuscador.focus();
+            }
         }
 
-        // --- NUEVA LÓGICA DE COBRO ---
+        // --- LÓGICA DE COBRO ---
 
-        // 1. Abre el modal en lugar de cobrar directo
         function cobrar() {
             if (carrito.length === 0) {
                 alert("El carrito está vacío");
                 return;
             }
             
-            // Calculamos total
             let total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
             
-            // Preparamos el modal
             document.getElementById('modal-total-pagar').innerText = '$' + total.toFixed(2);
-            document.getElementById('paga-con').value = ''; // Limpiar campo
+            document.getElementById('paga-con').value = ''; 
             document.getElementById('vuelto-texto').innerText = '$0.00';
             
-            // Abrimos el modal usando Bootstrap
             var myModal = new bootstrap.Modal(document.getElementById('modalCobro'));
             myModal.show();
+            
+            
+            document.getElementById('modalCobro').addEventListener('shown.bs.modal', function () {
+                document.getElementById('paga-con').focus();
+            });
         }
 
-        // 2. Calcula el vuelto en tiempo real
         function calcularVuelto() {
             let total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
             let pagaCon = parseFloat(document.getElementById('paga-con').value) || 0;
-            
             let vuelto = pagaCon - total;
             
             let spanVuelto = document.getElementById('vuelto-texto');
@@ -378,73 +483,104 @@ function actualizarVista() {
         }
 
         async function confirmarVenta() {
-        let metodo = document.getElementById('metodo-pago').value;
-        
-        try {
-            const response = await fetch('/cobrar/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}' 
-                },
-                body: JSON.stringify({ 
-                    items: carrito, 
-                    metodo_pago: metodo 
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                // A. Cerramos el modal de cobro
-                const modalCobroEl = document.getElementById('modalCobro');
-                const modalCobro = bootstrap.Modal.getInstance(modalCobroEl);
-                modalCobro.hide();
-                
-                // B. Guardamos el ID que nos dio el backend
-                ultimaVentaId = data.venta_id;
-
-                // C. Abrimos el NUEVO Modal de Éxito (El que tiene el tilde verde)
-                const modalExito = new bootstrap.Modal(document.getElementById('modalExito'));
-                modalExito.show();
-                
-                // Limpiamos carrito visualmente de fondo
-                carrito = [];
-                actualizarVista();
-            } else {
-                alert("❌ Error: " + data.mensaje);
-            }
-
-        } catch (error) {
-            console.error('Error:', error);
-            alert("Error de conexión");
-        }
-    }
-
-    // --- 3. NUEVA FUNCIÓN FINAL (Para el botón "Aceptar y Continuar") ---
-    
-    function finalizarProceso() {
-        // Verificamos si eligió "Sí, imprimir"
-        let quiereImprimir = document.getElementById('optionSi').checked;
-        
-        if (quiereImprimir && ultimaVentaId) {
-            // Calculamos centro de pantalla
-            let w = 350;
-            let h = 600;
-            let left = (screen.width / 2) - (w / 2);
-            let top = (screen.height / 2) - (h / 2);
+            let metodo = document.getElementById('metodo-pago').value;
             
-            // Abrimos el ticket
-            window.open(
-                '/ticket/' + ultimaVentaId + '/', 
-                'Ticket', 
-                `width=${w},height=${h},top=${top},left=${left},scrollbars=yes`
-            );
+            try {
+                const response = await fetch('/cobrar/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                    body: JSON.stringify({ items: carrito, metodo_pago: metodo })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const modalCobro = bootstrap.Modal.getInstance(document.getElementById('modalCobro'));
+                    modalCobro.hide();
+                    
+                    ultimaVentaId = data.venta_id;
+                    const modalExito = new bootstrap.Modal(document.getElementById('modalExito'));
+                    modalExito.show();
+                    
+                    carrito = [];
+                    actualizarVista();
+                } else {
+                    alert("❌ Error: " + data.mensaje);
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert("Error de conexión");
+            }
         }
 
-        // Recargamos la página para limpiar todo y estar listos para el próximo cliente
-        location.reload();
+        function finalizarProceso() {
+            let quiereImprimir = document.getElementById('optionSi').checked;
+            
+            if (quiereImprimir && ultimaVentaId) {
+                let w = 350, h = 600;
+                let left = (screen.width / 2) - (w / 2);
+                let top = (screen.height / 2) - (h / 2);
+                window.open('/ticket/' + ultimaVentaId + '/', 'Ticket', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes`);
+            }
+            location.reload();
+        }
+
+        // --- FILTRO POR CATEGORÍAS ---
+    function filtrarCategoria(idCategoria, boton) {
+        
+        document.querySelectorAll('.btn-outline-dark').forEach(b => {
+            b.classList.remove('btn-outline-dark', 'active');
+            b.classList.add('btn-outline-secondary');
+        });
+        boton.classList.remove('btn-outline-secondary');
+        boton.classList.add('btn-outline-dark', 'active');
+
+        
+        let filas = document.querySelectorAll('.producto-row');
+        
+        filas.forEach(fila => {
+            
+            let catFila = fila.getAttribute('data-categoria');
+            
+            
+            if (idCategoria === 'TODOS' || catFila === idCategoria) {
+                fila.style.display = '';
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+
+        
+        const inputBuscador = document.getElementById('buscador');
+        if(inputBuscador) {
+            inputBuscador.value = '';
+            inputBuscador.focus();
+        }
     }
-  </script>
+
+    </script> <script>
+        function actualizarCategorias() {
+            const tipo = document.getElementById('select-tipo').value;
+            const catSelect = document.getElementById('select-categoria');
+            catSelect.innerHTML = ''; 
+    
+            if (tipo === 'EGRESO') {
+                catSelect.innerHTML += `
+                    <option value="PROVEEDOR">📦 Pago a Proveedores (Mercadería)</option>
+                    <option value="GASTO_FIJO">💡 Gasto Fijo (Luz, Alquiler)</option>
+                    <option value="GASTO_VARIO">🧹 Gasto Vario (Insumos, Limpieza)</option>
+                    <option value="RETIRO_SOCIO">💵 Retiro de Ganancia (Dueño)</option>
+                `;
+            } else {
+                catSelect.innerHTML += `
+                    <option value="OTROS_INGRESOS">💰 Cambio / Aporte de Caja</option>
+                `;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', actualizarCategorias);
+    </script>
+
 </body>
 </html>

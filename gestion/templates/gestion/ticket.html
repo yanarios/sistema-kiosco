@@ -6,7 +6,7 @@
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
-            background-color: #525659; /* Fondo gris oscuro tipo visor PDF */
+            background-color: #525659; 
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -15,7 +15,7 @@
             padding-top: 20px;
         }
 
-        /* La "Hoja" del ticket */
+        
         .ticket-container {
             background-color: white;
             width: 300px;
@@ -29,7 +29,7 @@
         .linea { border-bottom: 1px dashed black; margin: 8px 0; }
         table { width: 100%; font-size: 12px; }
         
-        /* Botones de acción (No salen en la impresión) */
+        
         .acciones {
             position: fixed;
             bottom: 0;
@@ -54,7 +54,7 @@
         .btn-imprimir { background-color: #28a745; color: white; }
         .btn-cerrar { background-color: #dc3545; color: white; }
 
-        /* REGLAS DE IMPRESIÓN: Ocultar botones y fondo */
+        
         @media print {
             body { background-color: white; display: block; }
             .ticket-container { box-shadow: none; margin: 0; width: 100%; }
@@ -66,7 +66,7 @@
 
     <div class="ticket-container">
         <div class="centrado">
-            <strong>KIOSCO GISELE</strong><br>
+            <strong>KIOSCO DOÑA PEPITA</strong><br>
             Tucumán, Argentina<br>
             --------------------------------
         </div>

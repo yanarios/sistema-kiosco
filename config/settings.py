@@ -120,18 +120,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# A dónde ir después de loguearse
+
 LOGIN_REDIRECT_URL = 'ventas' 
-# A dónde ir después de desloguearse
+
 LOGOUT_REDIRECT_URL = 'login'
 
-# ... al final del archivo ...
 
-# 1. Que la sesión muera al cerrar el navegador
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-# 2. (Opcional) Que la sesión expire sola si pasan X segundos (ej: 1 hora = 3600)
-# Esto sirve por si dejan la compu prendida y se van a almorzar.
 SESSION_COOKIE_AGE = 3600
 
 # --- CONFIGURACIÓN DE JAZZMIN (DISEÑO ADMIN) ---
@@ -141,23 +137,23 @@ JAZZMIN_SETTINGS = {
     "site_brand": "Kiosco Abbyta Uyuyui",
     "welcome_sign": "Bienvenido al Sistema de Gestión",
     "copyright": "Kiosco Abbyta Ltd",
-    "search_model": "gestion.Producto",  # Barra de búsqueda rápida arriba
+    "search_model": "gestion.Producto", 
     
-    # Menú lateral (opcional: podés probar cambiar a True)
+    
     "show_ui_builder": False, 
 
     "topmenu_links": [
-        # Botón para volver al Inicio del Admin
+        
         {"name": "Inicio Admin",  "url": "admin:index", "permissions": ["auth.view_user"]},
 
-        # Botón MÁGICO para ir a las Ventas
+        
         {
             "name": "💰 IR A LA CAJA / VENTAS", 
-            "url": "ventas",        # Este es el 'name' de tu url en urls.py
-            "permissions": ["auth.view_user"], # Solo lo ven usuarios logueados
-            "icon": "fas fa-cash-register",    # Icono de caja registradora
-            "class": "btn btn-success",        # Color verde para que destaque
+            "url": "ventas",        
+            "permissions": ["auth.view_user"],
+            "icon": "fas fa-cash-register",    
+            "class": "btn btn-success",        
         },
     ],
-    # ...
+    
 }
