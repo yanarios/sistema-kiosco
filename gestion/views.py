@@ -12,7 +12,8 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 import datetime
-from decimal import Decimal
+from decimal import Decimal 
+from .forms import ImportarProductosForm
 
 @login_required
 def ventas(request):
@@ -348,3 +349,76 @@ def imprimir_ticket(request, venta_id):
         'metodo_pago': venta.metodo_pago
     }
     return render(request, 'gestion/ticket.html', context)
+
+
+
+# --- IMPORTACIÓN MASIVA ---
+@login_required
+def importar_productos(request):
+    if request.method == 'POST':
+        form = ImportarProductosForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = request.FILES['archivo_excel']
+            try:
+                # 1. Detectar si es Excel o CSV
+                if archivo.name.endswith('.csv'):
+                    df = pd.read_csv(archivo)
+                else:
+                    df = pd.read_excel(archivo)
+
+                # 2. Normalizar columnas (minúsculas y sin espacios para evitar errores)
+                df.columns = df.columns.str.strip().str.lower()
+
+                # 3. Validar columnas obligatorias
+                requeridas = ['codigo', 'nombre', 'venta']
+                if not all(col in df.columns for col in requeridas):
+                    messages.error(request, "❌ Error: El archivo DEBE tener las columnas: codigo, nombre, venta")
+                    return render(request, 'gestion/importar.html', {'form': form})
+
+                contador_nuevos = 0
+                contador_actualizados = 0
+
+                # 4. Transacción Atómica (Si falla uno, no se guarda nada a medias)
+                with transaction.atomic():
+                    for index, row in df.iterrows():
+                        # Convertimos a string y limpiamos espacios
+                        codigo = str(row['codigo']).strip().replace('.0', '') # Evita que 123 sea "123.0"
+                        nombre = str(row['nombre']).strip()
+                        
+                        # Manejo de Categoría (Si no existe, la crea)
+                        cat_nombre = str(row.get('categoria', 'General')).strip()
+                        categoria_obj, _ = Categoria.objects.get_or_create(nombre=cat_nombre)
+
+                        # Valores numéricos seguros
+                        precio_venta = float(row['venta']) if pd.notna(row['venta']) else 0
+                        precio_costo = float(row.get('costo', 0)) if pd.notna(row.get('costo')) else 0
+                        stock = float(row.get('stock', 0)) if pd.notna(row.get('stock')) else 0
+
+                        # CREAR O ACTUALIZAR PRODUCTO
+                        producto, created = Producto.objects.update_or_create(
+                            codigo=codigo,
+                            defaults={
+                                'nombre': nombre,
+                                'precio_venta': precio_venta,
+                                'precio_costo': precio_costo,
+                                'stock_actual': stock, # OJO: Esto sobreescribe el stock. Si querés sumar, avisame.
+                                'categoria': categoria_obj,
+                                'activo': True
+                            }
+                        )
+                        
+                        if created:
+                            contador_nuevos += 1
+                        else:
+                            contador_actualizados += 1
+
+                messages.success(request, f"✅ Éxito: Se crearon {contador_nuevos} productos y se actualizaron {contador_actualizados}.")
+                return redirect('ventas')
+
+            except Exception as e:
+                messages.error(request, f"🔥 Error crítico al procesar el archivo: {str(e)}")
+
+    else:
+        form = ImportarProductosForm()
+
+    return render(request, 'gestion/importar.html', {'form': form})

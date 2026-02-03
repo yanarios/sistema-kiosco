@@ -11,4 +11,5 @@ urlpatterns = [
     path('exportar-productos/', views.exportar_productos_excel, name='exportar_productos_excel'),
     path('reporte-mensual/', views.reporte_mensual, name='reporte_mensual'),
     path('ticket/<int:venta_id>/', views.imprimir_ticket, name='imprimir_ticket'),
+    path('importar/', views.importar_productos, name='importar_productos'),
 ]

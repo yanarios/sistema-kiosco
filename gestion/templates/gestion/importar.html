@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Importar Productos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3>📂 Importación Masiva de Productos</h3>
+                </div>
+                <div class="card-body">
+                    
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="alert alert-info">
+                        <h5>📝 Instrucciones para el Excel</h5>
+                        <p>El archivo debe tener las siguientes columnas (la primera fila debe ser el encabezado):</p>
+                        <ul>
+                            <li><strong>codigo</strong> (Obligatorio): El código de barras.</li>
+                            <li><strong>nombre</strong> (Obligatorio): Nombre del producto.</li>
+                            <li><strong>venta</strong> (Obligatorio): Precio de venta.</li>
+                            <li><strong>costo</strong> (Opcional): Precio de costo.</li>
+                            <li><strong>stock</strong> (Opcional): Cantidad inicial.</li>
+                            <li><strong>categoria</strong> (Opcional): Nombre de la categoría (si no existe, se crea sola).</li>
+                        </ul>
+                        <small>Podés descargar un <a href="#">ejemplo aquí</a> (próximamente).</small>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            {{ form.as_p }}
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">🚀 Subir y Procesar</button>
+                            <a href="{% url 'ventas' %}" class="btn btn-secondary">Volver a Ventas</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
