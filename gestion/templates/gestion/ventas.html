@@ -33,6 +33,27 @@
 
    <div class="container-fluid mt-3 mb-2">
     <div class="d-flex justify-content-end gap-2">
+
+        {% if user.is_staff %}
+            {% if productos %}
+                <a href="{% url 'reporte_faltantes' %}" class="btn btn-outline-danger position-relative me-3">
+                    ⚠️ Stock Bajo
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        {% with bajos=0 %}{% for p in productos %}{% if p.esta_en_alerta %}{% if forloop.first %}+{% endif %}{% endif %}{% endfor %}{% endwith %}
+                        !
+                    </span>
+                </a>
+            {% endif %}
+        {% endif %}
+
+        <div class="d-flex justify-content-end gap-2">
+         {% if user.is_staff %}
+          <a href="{% url 'historial_ventas' %}" class="btn btn-secondary">
+              📜 Historial / Anular
+          </a>
+         {% endif %}
+
+        </div>
         
         <a href="{% url 'exportar_excel' %}" class="btn btn-success">
             📊 Exportar Ventas

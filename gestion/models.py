@@ -41,6 +41,10 @@ class Producto(models.Model):
     activo = models.BooleanField(default=True)
     imagen = models.ImageField(upload_to='productos/', blank=True, null=True) 
 
+    def esta_en_alerta(self):
+        """Devuelve True si el stock actual es menor o igual al mínimo."""
+        return self.stock_actual <= self.stock_minimo
+
     def __str__(self):
         return f"{self.nombre} (${self.precio_venta})"
 
@@ -80,20 +84,24 @@ class Venta(models.Model):
         ('MERCADOPAGO', 'Mercado Pago'),
         ('DEBITO', 'Débito'),
         ('CREDITO', 'Crédito'),
-        ('VALE', 'Vale / Fiado'), # AGREGADO: Opción Vale
+        ('VALE', 'Vale / Fiado'),
     ]
 
     sesion = models.ForeignKey(SesionCaja, on_delete=models.PROTECT, related_name='ventas')
-    usuario = models.ForeignKey(User, on_delete=models.PROTECT, null=True) # AGREGADO: Quién hizo la venta
-    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True) # AGREGADO: Para el fiado
+    usuario = models.ForeignKey(User, on_delete=models.PROTECT, null=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True)
     
     fecha = models.DateTimeField(default=timezone.now)
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     metodo_pago = models.CharField(max_length=20, choices=METODOS_PAGO, default='EFECTIVO')
+    
+    # --- ESTO ES LO NUEVO ---
+    anulada = models.BooleanField(default=False) 
 
     def __str__(self):
-        return f"Venta #{self.id} - ${self.total}"
-
+        # Actualizamos para que el administrador vea si está anulada
+        estado = " (ANULADA)" if self.anulada else ""
+        return f"Venta #{self.id} - ${self.total}{estado}"
 # 6. DETALLE DE VENTA
 class DetalleVenta(models.Model):
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')

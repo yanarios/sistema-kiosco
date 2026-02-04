@@ -12,4 +12,7 @@ urlpatterns = [
     path('reporte-mensual/', views.reporte_mensual, name='reporte_mensual'),
     path('ticket/<int:venta_id>/', views.imprimir_ticket, name='imprimir_ticket'),
     path('importar/', views.importar_productos, name='importar_productos'),
+    path('reporte-faltantes/', views.reporte_faltantes, name='reporte_faltantes'),
+    path('historial/', views.historial_ventas, name='historial_ventas'),
+    path('anular/<int:venta_id>/', views.anular_venta, name='anular_venta'),
 ]

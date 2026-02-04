@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Compras - Faltantes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Optimización para Impresión */
+        @media print { 
+            .no-print, .btn, .card-header, .alert, .sector-whatsapp { display: none !important; } 
+            body { background-color: white !important; }
+            .container { width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            .card { border: none !important; shadow: none !important; }
+            .table { font-size: 12pt; border: 1px solid #000 !important; }
+            th { background-color: #eee !important; color: black !important; }
+        }
+        .sugerido-input { width: 80px; }
+        .card { border-radius: 10px; }
+        .sector-whatsapp { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-5 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+            <div>
+                <h2 class="mb-0">📋 Lista de Reposición</h2>
+                <p class="text-muted small">Productos por debajo del stock mínimo</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button onclick="prepararEImprimir()" class="btn btn-outline-dark">🖨️ Imprimir PDF</button>
+                <a href="{% url 'ventas' %}" class="btn btn-secondary">Volver</a>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-4 no-print shadow-sm border-0 sector-whatsapp">
+            <h5 class="mb-3">📱 Enviar Pedido Directo</h5>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Seleccionar Proveedor (Historial)</label>
+                    <select id="historial-numeros" class="form-select">
+                        <option value="">-- Nuevo Número --</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small">Número de Celular</label>
+                    <input type="text" id="nuevo-numero" class="form-control" placeholder="Ej: 549381xxxxxxx">
+                </div>
+                <div class="col-md-5 d-flex gap-2">
+                    <button id="btn-whatsapp" onclick="enviarWhatsApp()" class="btn btn-success flex-grow-1 fw-bold">
+                        🚀 Enviar WhatsApp
+                    </button>
+                    <button id="btn-copiar" onclick="copiarPedido()" class="btn btn-outline-success">
+                        📋 Copiar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-none d-print-block text-center mb-4">
+            <h1>Pedido de Mercadería - Kiosco</h1>
+            <p>Fecha: {% now "d/m/Y H:i" %}</p>
+            <hr>
+        </div>
+
+        <div class="card shadow border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tabla-faltantes">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="no-print" style="width: 40px;">Pedido</th>
+                            <th>Producto</th>
+                            <th class="text-center">Stock Actual</th>
+                            <th class="text-center">Mínimo</th>
+                            <th class="text-center bg-secondary text-white">Sugerido Compra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in productos %}
+                        <tr class="producto-fila" data-nombre="{{ p.nombre }}">
+                            <td class="text-center no-print">
+                                <input type="checkbox" class="form-check-input check-pedido" checked>
+                            </td>
+                            <td>
+                                <div class="fw-bold">{{ p.nombre }}</div>
+                                <small class="text-muted">{{ p.categoria.nombre|default:"General" }}</small>
+                            </td>
+                            <td class="text-center text-danger fw-bold">{{ p.stock_actual }}</td>
+                            <td class="text-center">{{ p.stock_minimo }}</td>
+                            <td class="text-center bg-light">
+                                <input type="number" class="form-control form-control-sm mx-auto sugerido-input text-center fw-bold text-primary" 
+                                       value="10"> 
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <h4>✅ No hay faltantes registrados</h4>
+                                <p>Todos los productos están por encima de su stock mínimo.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-3 no-print small">
+            <strong>💡 Instrucciones:</strong> Marcá los productos que querés pedir, ajustá la cantidad "Sugerido" si es necesario y seleccioná un número de WhatsApp o copiá el texto.
+        </div>
+    </div>
+
+    <script>
+        // --- PREPARAR IMPRESIÓN (Solución al "Cargando") ---
+        function prepararEImprimir() {
+            // Forzamos un pequeño retraso para asegurar que los estilos carguen
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+
+        // --- GESTIÓN DE HISTORIAL ---
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarHistorial();
+            document.getElementById('historial-numeros').addEventListener('change', function() {
+                document.getElementById('nuevo-numero').value = this.value;
+            });
+        });
+
+        function cargarHistorial() {
+            const historial = JSON.parse(localStorage.getItem('historial_proveedores') || '[]');
+            const select = document.getElementById('historial-numeros');
+            select.innerHTML = '<option value="">-- Nuevo Número --</option>';
+            historial.forEach(num => {
+                const opt = document.createElement('option');
+                opt.value = num; opt.textContent = num;
+                select.appendChild(opt);
+            });
+        }
+
+        function guardarEnHistorial(numero) {
+            let historial = JSON.parse(localStorage.getItem('historial_proveedores') || '[]');
+            if (numero && !historial.includes(numero)) {
+                historial.push(numero);
+                localStorage.setItem('historial_proveedores', JSON.stringify(historial));
+                cargarHistorial();
+            }
+        }
+
+        // --- GENERACIÓN DEL MENSAJE ---
+        function armarCuerpoPedido() {
+            let mensaje = "Hola! Te paso el pedido del Kiosco:\n\n";
+            let filas = document.querySelectorAll('.producto-fila');
+            let hayProductos = false;
+
+            filas.forEach(fila => {
+                let checkbox = fila.querySelector('.check-pedido');
+                if (checkbox.checked) {
+                    let nombre = fila.getAttribute('data-nombre');
+                    let cantidad = fila.querySelector('.sugerido-input').value;
+                    mensaje += `🔹 ${nombre}: ${cantidad}\n`;
+                    hayProductos = true;
+                }
+            });
+
+            return hayProductos ? mensaje + "\nEspero tu confirmación. Gracias!" : null;
+        }
+
+        // --- ACCIONES (Seguridad Antichoque Visual) ---
+        function bloquearBotones(bloquear) {
+            document.getElementById('btn-whatsapp').disabled = bloquear;
+            document.getElementById('btn-copiar').disabled = bloquear;
+        }
+
+        function enviarWhatsApp() {
+            bloquearBotones(true);
+            const numero = document.getElementById('nuevo-numero').value.trim();
+            const mensaje = armarCuerpoPedido();
+
+            if (!numero || !mensaje) {
+                alert("Verificá el número y seleccioná productos.");
+                bloquearBotones(false);
+                return;
+            }
+
+            guardarEnHistorial(numero);
+            const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+            window.open(url, '_blank');
+            
+            // Desbloqueamos después de abrir la pestaña
+            setTimeout(() => bloquearBotones(false), 1000);
+        }
+
+        function copiarPedido() {
+            const mensaje = armarCuerpoPedido();
+            if (!mensaje) { alert("Seleccioná productos."); return; }
+
+            navigator.clipboard.writeText(mensaje).then(() => {
+                alert("✅ ¡Pedido copiado!");
+            });
+        }
+    </script>
+</body>
+</html>
